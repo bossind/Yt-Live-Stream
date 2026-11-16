@@ -30,21 +30,24 @@ Private, multi-Gmail allowlisted administrator YouTube live broadcast automation
 
 ## 3. Firebase Console Setup Instructions
 
-> **Note**: In AI Studio preview environments, a Firebase project (`stable-environs-ftn3v`), Web App config (`firebase-applet-config.json`), and named Firestore database (`ai-studio-youtubeliveautom-4bb31c20-1296-4a64-8c96-284398a3673d`) were provisioned automatically alongside deployed `firestore.rules`. For standalone production or manual verification, follow these steps in [Firebase Console](https://console.firebase.google.com/):
+> **Note**: In AI Studio preview environments, a Firebase project (`stable-environs-ftn3v`), Web App config (`firebase-applet-config.json`), and named Firestore database (`ai-studio-youtubeliveautom-4bb31c20-1296-4a64-8c96-284398a3673d`) were provisioned automatically alongside deployed `firestore.rules`. To allow sign-in on your production Render website (`https://yt-live-stream-x53v.onrender.com`), complete these checks in [Firebase Console](https://console.firebase.google.com/):
 
-1. **Create / Open Firebase Project**: Select your provisioned project (`stable-environs-ftn3v`) or create a new Firebase project.
-2. **Register a Web App**: Go to **Project Settings → General → Your apps → Web** (`</>`) to obtain `apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, and `appId`.
+1. **Open Existing Firebase Project**: Select **`stable-environs-ftn3v`** (do **not** create a duplicate project or conflicting OAuth client).
+2. **Verify Web App Config**: **Project Settings → General → Your apps → Web** (`</>`) provides `apiKey`, `authDomain` (`stable-environs-ftn3v.firebaseapp.com`), `projectId` (`stable-environs-ftn3v`), `storageBucket`, `messagingSenderId`, and `appId`.
 3. **Enable Authentication Providers** (**Authentication → Sign-in method**):
-   - Enable **Email/Password**.
-   - Enable **Google** sign-in and set a Project support email.
-4. **Configure Authorized Domains** (**Authentication → Settings → Authorized domains**):
-   Add every domain where administrators will sign in:
-   - `localhost` (enabled by default)
-   - Your Render Static Site domain (e.g., `your-studio-frontend.onrender.com`)
-   - Your AI Studio dev and shared domains
-5. **Verify Cloud Firestore**: Ensure Cloud Firestore is enabled in Native mode (`(default)` or your configured named database ID).
-6. **Deploy Security Rules**: Ensure `firestore.rules` from this repository is deployed (`firebase deploy --only firestore:rules` locally).
-7. **Generate Firebase Admin Service Account Key** (**Project Settings → Service Accounts → Generate new private key**):
+   - **Email/Password**: Ensure status is **Enabled** (do not disable).
+   - **Google**: Ensure status is **Enabled**, confirm a **Project support email** is selected, and keep Firebase's Web SDK configuration on `stable-environs-ftn3v` (do **not** create conflicting OAuth clients inside Google Cloud for Firebase login).
+4. **Add Production Render Hostname to Firebase Authorized Domains** (**Authentication → Settings → Authorized domains**):
+   - Click **Add domain** and enter **hostname only** (NO `https://`, NO trailing slash `/`, NO paths):
+     - `yt-live-stream-x53v.onrender.com`
+   - Keep existing authorized domains intact:
+     - `localhost`
+     - `stable-environs-ftn3v.firebaseapp.com` / `stable-environs-ftn3v.web.app`
+     - Your AI Studio dev and shared preview hostnames
+   - *(Note: **Firebase Authorized Domains** controls Firebase Auth website login & password-reset redirects—it is separate from **Google Drive OAuth Redirect URIs**, which remain `https://yt-live-stream-x53v.onrender.com/api/v1/storage/google-drive/oauth/callback` in Google Cloud Console.)*
+5. **Verify Cloud Firestore**: Ensure Cloud Firestore is enabled in Native mode for `ai-studio-youtubeliveautom-4bb31c20-1296-4a64-8c96-284398a3673d` (or `(default)` if using a standalone database).
+6. **Deploy Security Rules**: Ensure `firestore.rules` from this repository is deployed (`firebase deploy --only firestore:rules` if managing manually).
+7. **Firebase Admin Service Account Key (Required on Render)** (**Project Settings → Service Accounts → Generate new private key**):
    - Download the JSON key file safely (NEVER commit it to git).
    - Minify it into a single-line JSON string for `FIREBASE_SERVICE_ACCOUNT_JSON` (or split into `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY`).
 
@@ -151,41 +154,33 @@ npm run start         # Run compiled production server (`node dist-server/server
 
 ---
 
-## 8. Render Deployment Instructions (Split Architecture)
+## 8. Render Deployment Instructions
 
-### A. Backend (`Render Web Service`)
-- **Build Command**: `npm install && npm run build:server`
+### A. Single Web Service (`https://yt-live-stream-x53v.onrender.com`)
+When serving both the Vite SPA and Express API from one Render Web Service:
+- **Build Command**: `npm install && npm run build`
 - **Start Command**: `npm run start`
 - **Health Check Path**: `/api/health`
 - **Environment Variables** (**Render Dashboard → Web Service → Environment**):
   - `NODE_ENV=production`
-  - `SERVE_STATIC=false`
-  - `APP_BASE_URL=https://<your-backend-service>.onrender.com` *(must use `https://` in production)*
-  - `CORS_ORIGINS=https://<your-frontend-site>.onrender.com`
-  - `FIREBASE_PROJECT_ID=<your-firebase-project-id>`
-  - `FIREBASE_DATABASE_ID=(default)` *(or your named Firestore database ID)*
+  - `SERVE_STATIC=true`
+  - `APP_BASE_URL=https://yt-live-stream-x53v.onrender.com` *(must use `https://` in production)*
+  - `CORS_ORIGINS=https://yt-live-stream-x53v.onrender.com`
+  - `FIREBASE_PROJECT_ID=stable-environs-ftn3v`
+  - `FIREBASE_DATABASE_ID=ai-studio-youtubeliveautom-4bb31c20-1296-4a64-8c96-284398a3673d`
   - `FIREBASE_SERVICE_ACCOUNT_JSON=<minified-service-account-json>`
-  - `FIREBASE_ADMIN_EMAIL=<your-primary-admin-email>`
-  - `ADMIN_EMAILS=<comma-separated-admin-emails>`
-  - `GOOGLE_CLIENT_ID=<client-id>.apps.googleusercontent.com`
-  - `GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>` *(backend-only — NEVER put in Static Site `VITE_*`)*
-  - `GOOGLE_DRIVE_CALLBACK_URL=https://<your-backend-service>.onrender.com/api/v1/storage/google-drive/oauth/callback`
+  - `FIREBASE_ADMIN_EMAIL=ritikrai2625@gmail.com`
+  - `ADMIN_EMAILS=ritikrai2625@gmail.com` *(comma-separated for additional admins)*
+  - `GOOGLE_CLIENT_ID=<client-id>.apps.googleusercontent.com` *(Drive storage OAuth)*
+  - `GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>` *(backend-only)*
+  - `GOOGLE_DRIVE_CALLBACK_URL=https://yt-live-stream-x53v.onrender.com/api/v1/storage/google-drive/oauth/callback`
   - `GOOGLE_OAUTH_ENCRYPTION_KEY=<64-char-hex-32-byte-secret>` *(generate with `openssl rand -hex 32`)*
-- **Redeploy Requirement**: After adding or updating `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_DRIVE_CALLBACK_URL`, or `APP_BASE_URL` on Render, trigger a manual redeploy (or wait for auto-redeploy to finish) so the Node server loads the updated environment.
+- **Redeploy Requirement**: After adding or updating any Render environment variable, click **Manual Deploy → Deploy latest commit** so Node restarts with the new configuration.
 
-### B. Frontend (`Render Static Site`)
-- **Build Command**: `npm install && npm run build:client`
-- **Publish Directory**: `dist`
-- **Rewrite Rule**: `/*` -> `/index.html` (`Rewrite`)
-- **Environment Variables**:
-  - `VITE_API_BASE_URL=https://<your-backend-service>.onrender.com`
-  - `VITE_FIREBASE_API_KEY=<web-api-key>`
-  - `VITE_FIREBASE_AUTH_DOMAIN=<project-id>.firebaseapp.com`
-  - `VITE_FIREBASE_PROJECT_ID=<project-id>`
-  - `VITE_FIREBASE_STORAGE_BUCKET=<project-id>.firebasestorage.app`
-  - `VITE_FIREBASE_MESSAGING_SENDER_ID=<sender-id>`
-  - `VITE_FIREBASE_APP_ID=<app-id>`
-  - `VITE_FIREBASE_DATABASE_ID=(default)` *(or your named Firestore database ID)*
+### B. Split Architecture (`Render Web Service` + `Render Static Site`)
+If deploying backend and frontend as separate Render services:
+- **Backend Web Service**: Build `npm install && npm run build:server`, Start `npm run start`, `SERVE_STATIC=false`, `CORS_ORIGINS=https://<your-frontend-site>.onrender.com`, `APP_BASE_URL=https://<your-backend-service>.onrender.com`.
+- **Frontend Static Site**: Build `npm install && npm run build:client`, Publish `dist`, Rewrite `/* -> /index.html`, set `VITE_API_BASE_URL=https://<your-backend-service>.onrender.com` plus all `VITE_FIREBASE_*` keys (`VITE_FIREBASE_DATABASE_ID=ai-studio-youtubeliveautom-4bb31c20-1296-4a64-8c96-284398a3673d`).
 
 ### C. Optional Secondary Storage (R2 / S3 / GCS)
 If you optionally add Cloudflare R2, Amazon S3, or Google Cloud Storage buckets in the **Optional Extension** tab of the Connect dialog, configure bucket CORS to allow your exact frontend origin and expose the `ETag` response header (use the **Optional R2/S3 CORS Guide** tab inside `/storage`).

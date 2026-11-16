@@ -54,6 +54,7 @@ if (firebaseClientConfigState.isConfigured) {
         });
 
   firebaseAuth = getAuth(firebaseApp);
+  firebaseAuth.useDeviceLanguage();
   firestoreDb =
     cfg.firestoreDatabaseId && cfg.firestoreDatabaseId !== '(default)'
       ? getFirestore(firebaseApp, cfg.firestoreDatabaseId)

@@ -26,7 +26,15 @@ export function createBackendApp(): Express {
   app.use(
     cors((req, callback) => {
       const originHeader = req.headers.origin;
-      const origin = typeof originHeader === 'string' ? originHeader.replace(/\/+$/, '') : '';
+      let origin = '';
+      if (typeof originHeader === 'string' && originHeader.trim().length > 0) {
+        const trimmedOrigin = originHeader.trim().replace(/\/+$/, '');
+        try {
+          origin = new URL(trimmedOrigin).origin.toLowerCase();
+        } catch {
+          origin = trimmedOrigin.toLowerCase();
+        }
+      }
 
       if (!origin) {
         return callback(null, { origin: false });
@@ -34,12 +42,12 @@ export function createBackendApp(): Express {
 
       const forwardedHost =
         typeof req.headers['x-forwarded-host'] === 'string'
-          ? req.headers['x-forwarded-host'].split(',')[0].trim()
-          : req.headers.host;
+          ? req.headers['x-forwarded-host'].split(',')[0].trim().toLowerCase()
+          : req.headers.host?.toLowerCase();
       const rawProto =
         typeof req.headers['x-forwarded-proto'] === 'string'
           ? req.headers['x-forwarded-proto'].split(',')[0].trim().toLowerCase()
-          : req.protocol;
+          : req.protocol.toLowerCase();
       const hostOnly = forwardedHost ? forwardedHost.split(':')[0].toLowerCase() : '';
       const isLocal = hostOnly === 'localhost' || hostOnly === '127.0.0.1' || hostOnly === '::1';
       const effectiveProto = !forwardedHost || isLocal ? rawProto : 'https';

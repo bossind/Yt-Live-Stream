@@ -2,6 +2,7 @@ import { AlertCircle, Eye, EyeOff, Loader2, Lock, Radio } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { AuthConfigStatus } from '../../shared/types/auth';
+import { isPopupFallbackSuggested, mapFirebaseAuthError } from '../firebase/authErrors';
 import { firebaseClientConfigState } from '../firebase/config';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
@@ -9,7 +10,15 @@ import { PublicAuthLayout } from '../layouts/PublicAuthLayout';
 import { authService } from '../services/authService';
 
 export function AuthLoginPage() {
-  const { status, authError, clearAuthError, loginWithEmail, loginWithGoogle } = useAuth();
+  const {
+    status,
+    authError,
+    canUseRedirectFallback,
+    clearAuthError,
+    loginWithEmail,
+    loginWithGoogle,
+    loginWithGoogleRedirect,
+  } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,6 +30,7 @@ export function AuthLoginPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [showRedirectFallback, setShowRedirectFallback] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [authConfig, setAuthConfig] = useState<AuthConfigStatus | null>(null);
 
@@ -61,6 +71,7 @@ export function AuthLoginPage() {
     e.preventDefault();
     setLocalError(null);
     clearAuthError();
+    setShowRedirectFallback(false);
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
@@ -77,7 +88,7 @@ export function AuthLoginPage() {
       await loginWithEmail(trimmedEmail, password, rememberMe);
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      setLocalError(err instanceof Error ? err.message : 'Unable to complete sign-in.');
+      setLocalError(mapFirebaseAuthError(err));
     } finally {
       setSubmitting(false);
     }
@@ -86,13 +97,29 @@ export function AuthLoginPage() {
   const handleGoogleSignIn = async () => {
     setLocalError(null);
     clearAuthError();
+    setShowRedirectFallback(false);
     setGoogleSubmitting(true);
     try {
       await loginWithGoogle(rememberMe);
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      setLocalError(err instanceof Error ? err.message : 'Unable to complete Google sign-in.');
+      if (canUseRedirectFallback && isPopupFallbackSuggested(err)) {
+        setShowRedirectFallback(true);
+      }
+      setLocalError(mapFirebaseAuthError(err));
     } finally {
+      setGoogleSubmitting(false);
+    }
+  };
+
+  const handleGoogleRedirectSignIn = async () => {
+    setLocalError(null);
+    clearAuthError();
+    setGoogleSubmitting(true);
+    try {
+      await loginWithGoogleRedirect(rememberMe);
+    } catch (err) {
+      setLocalError(mapFirebaseAuthError(err));
       setGoogleSubmitting(false);
     }
   };
@@ -266,6 +293,17 @@ export function AuthLoginPage() {
             </>
           )}
         </button>
+
+        {showRedirectFallback && canUseRedirectFallback ? (
+          <button
+            type="button"
+            onClick={() => void handleGoogleRedirectSignIn()}
+            disabled={submitting || googleSubmitting || !firebaseClientConfigState.isConfigured}
+            className="mt-2.5 flex min-h-[44px] w-full items-center justify-center rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/70 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+          >
+            Continue with Google Redirect (Mobile / Strict Browser Fallback)
+          </button>
+        ) : null}
 
         <div className="mt-6 border-t border-slate-200 pt-4 text-center text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
           {t.common.privateSingleAdmin} · {t.common.noPublicSignup}

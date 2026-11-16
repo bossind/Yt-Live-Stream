@@ -35,7 +35,7 @@ const envSchema = z.object({
     .string()
     .trim()
     .optional()
-    .default('http://localhost:3000,http://localhost:5173'),
+    .default('http://localhost:3000,http://localhost:5173,https://yt-live-stream-x53v.onrender.com'),
   SERVE_STATIC: z
     .string()
     .trim()
@@ -118,24 +118,35 @@ function normalizeConfiguredBaseUrl(rawUrl: string): string {
   }
 }
 
+function normalizeOrigin(rawOrigin: string): string {
+  const trimmed = rawOrigin.trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  try {
+    return new URL(trimmed).origin.toLowerCase();
+  } catch {
+    return trimmed.toLowerCase();
+  }
+}
+
 const explicitPublicBaseUrl = normalizeConfiguredBaseUrl(rawEnv.APP_BASE_URL || rawEnv.APP_URL);
 const explicitDriveCallbackUrl = rawEnv.GOOGLE_DRIVE_CALLBACK_URL.trim();
 
 const appBaseUrl = explicitPublicBaseUrl || (isProduction ? '' : `http://localhost:${rawEnv.PORT}`);
 
-const corsOriginsList = rawEnv.CORS_ORIGINS.split(',')
-  .map((origin) => origin.trim().replace(/\/+$/, ''))
-  .filter(Boolean);
-
-if (appBaseUrl && !corsOriginsList.includes(appBaseUrl)) {
-  corsOriginsList.push(appBaseUrl);
+const corsOriginsSet = new Set<string>();
+for (const rawOrigin of rawEnv.CORS_ORIGINS.split(',')) {
+  const norm = normalizeOrigin(rawOrigin);
+  if (norm) corsOriginsSet.add(norm);
+}
+if (appBaseUrl) {
+  const normBase = normalizeOrigin(appBaseUrl);
+  if (normBase) corsOriginsSet.add(normBase);
 }
 if (rawEnv.APP_URL.trim()) {
-  const normApp = normalizeConfiguredBaseUrl(rawEnv.APP_URL);
-  if (normApp && !corsOriginsList.includes(normApp)) {
-    corsOriginsList.push(normApp);
-  }
+  const normApp = normalizeOrigin(normalizeConfiguredBaseUrl(rawEnv.APP_URL));
+  if (normApp) corsOriginsSet.add(normApp);
 }
+const corsOriginsList = Array.from(corsOriginsSet);
 
 const googleDriveCallbackUrl = explicitDriveCallbackUrl
   ? explicitDriveCallbackUrl

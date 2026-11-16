@@ -1,5 +1,5 @@
 services:
-  # Backend API (Render Web Service)
+  # Backend API (Render Web Service; set SERVE_STATIC="true" and buildCommand="npm install && npm run build" for single-service hosting)
   - type: web
     name: ylas-backend-api
     runtime: node
@@ -19,7 +19,7 @@ services:
       - key: FIREBASE_PROJECT_ID
         sync: false
       - key: FIREBASE_DATABASE_ID
-        value: "(default)"
+        sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
       - key: ADMIN_EMAILS
