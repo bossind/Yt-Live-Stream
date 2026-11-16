@@ -1,0 +1,239 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'ritikrai2625@gmail.com' ||
+        request.auth.token.admin == true ||
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+          && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true)
+      );
+    }
+
+    function isValidSystemConfig(data) {
+      return data.keys().hasAll(['key', 'ownerUid', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['key', 'ownerUid', 'description', 'createdAt', 'updatedAt'])
+        && data.key is string && data.key.size() >= 1 && data.key.size() <= 100 && data.key.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerUid is string && data.ownerUid == request.auth.uid && data.ownerUid.size() <= 128
+        && (!('description' in data) || (data.description is string && data.description.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStudioChannel(data) {
+      return data.keys().hasAll(['ownerUid', 'title', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerUid', 'title', 'externalChannelId', 'status', 'createdAt', 'updatedAt'])
+        && data.ownerUid is string && data.ownerUid == request.auth.uid && data.ownerUid.size() <= 128
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && (!('externalChannelId' in data) || (data.externalChannelId is string && data.externalChannelId.size() <= 128))
+        && data.status in ['PENDING_CONNECTION', 'CONNECTED', 'DISCONNECTED']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMediaAsset(data) {
+      return data.keys().hasAll(['ownerUid', 'title', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerUid', 'title', 'storageKey', 'durationSeconds', 'status', 'createdAt', 'updatedAt'])
+        && data.ownerUid is string && data.ownerUid == request.auth.uid && data.ownerUid.size() <= 128
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && (!('storageKey' in data) || (data.storageKey is string && data.storageKey.size() <= 512))
+        && (!('durationSeconds' in data) || (data.durationSeconds is int && data.durationSeconds >= 0))
+        && data.status in ['PENDING', 'READY', 'ARCHIVED']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStreamSession(data) {
+      return data.keys().hasAll(['ownerUid', 'title', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerUid', 'title', 'channelId', 'status', 'createdAt', 'updatedAt'])
+        && data.ownerUid is string && data.ownerUid == request.auth.uid && data.ownerUid.size() <= 128
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && (!('channelId' in data) || (isValidId(data.channelId) && exists(/databases/$(database)/documents/studio_channels/$(data.channelId))))
+        && data.status in ['DRAFT', 'SCHEDULED', 'LIVE', 'ENDED', 'FAILED']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAutomationSchedule(data) {
+      return data.keys().hasAll(['ownerUid', 'title', 'cronExpression', 'enabled', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerUid', 'title', 'cronExpression', 'enabled', 'createdAt', 'updatedAt'])
+        && data.ownerUid is string && data.ownerUid == request.auth.uid && data.ownerUid.size() <= 128
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.cronExpression is string && data.cronExpression.size() >= 5 && data.cronExpression.size() <= 100
+        && data.enabled is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Authorized administrators (managed solely by Admin SDK)
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && isValidId(adminUid) && request.auth.uid == adminUid;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // Server-managed authorized Gmail/email admin allowlist (Admin SDK ONLY)
+    match /admin_allowlist/{entryId} {
+      allow read, write: if false;
+    }
+
+    // Ephemeral OAuth 2.0 CSRF states (Admin SDK ONLY)
+    match /oauth_states/{stateId} {
+      allow read, write: if false;
+    }
+
+    // Authentication security audit events (written & read solely by Admin SDK)
+    match /auth_security_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    // Application configuration (admin only)
+    match /system_config/{configId} {
+      allow get: if isValidId(configId) && isAdmin();
+      allow list: if isSignedIn() && existing().ownerUid == request.auth.uid;
+      allow create: if isValidId(configId)
+        && isValidSystemConfig(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isValidId(configId)
+        && isValidSystemConfig(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['description', 'updatedAt'])
+        && isAdmin();
+      allow delete: if false;
+    }
+
+    // Future Phase: YouTube channels
+    match /studio_channels/{channelId} {
+      allow get: if isValidId(channelId) && isAdmin();
+      allow list: if isSignedIn() && existing().ownerUid == request.auth.uid;
+      allow create: if isValidId(channelId)
+        && isValidStudioChannel(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isValidId(channelId)
+        && isValidStudioChannel(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'externalChannelId', 'status', 'updatedAt'])
+        && isAdmin();
+      allow delete: if isValidId(channelId) && isAdmin();
+    }
+
+    // Future Phase 4: Video library metadata
+    match /media_assets/{assetId} {
+      allow get: if isValidId(assetId) && isAdmin();
+      allow list: if isSignedIn() && existing().ownerUid == request.auth.uid;
+      allow create: if isValidId(assetId)
+        && isValidMediaAsset(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isValidId(assetId)
+        && isValidMediaAsset(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'storageKey', 'durationSeconds', 'status', 'updatedAt'])
+        && isAdmin();
+      allow delete: if isValidId(assetId) && isAdmin();
+    }
+
+    // Phase 3: Server-authoritative cloud storage configurations (no secret keys stored here)
+    match /storage_configs/{configId} {
+      allow get: if isValidId(configId) && isAdmin();
+      allow list: if isSignedIn() && existing().ownerUid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    // Phase 3: AES-256-GCM encrypted storage credentials vault (Admin SDK ONLY; never readable by any client)
+    match /storage_provider_secrets/{accountId} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Server-authoritative resumable upload sessions
+    match /storage_upload_sessions/{sessionId} {
+      allow get: if isValidId(sessionId) && isAdmin();
+      allow list: if isSignedIn() && existing().ownerUid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    // Phase 3: Verified uploaded cloud file metadata
+    match /storage_files/{fileId} {
+      allow get: if isValidId(fileId) && isAdmin();
+      allow list: if isSignedIn() && existing().ownerUid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    // Phase 3: Storage audit, health, and error logs (Admin SDK ONLY)
+    match /storage_activity_logs/{logId} {
+      allow read, write: if false;
+    }
+
+    // Future Phase 4: Stream sessions (with terminal state lock once ENDED)
+    match /stream_sessions/{sessionId} {
+      allow get: if isValidId(sessionId) && isAdmin();
+      allow list: if isSignedIn() && existing().ownerUid == request.auth.uid;
+      allow create: if isValidId(sessionId)
+        && isValidStreamSession(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isValidId(sessionId)
+        && isValidStreamSession(incoming())
+        && existing().status != 'ENDED'
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'channelId', 'status', 'updatedAt'])
+        && isAdmin();
+      allow delete: if isValidId(sessionId) && isAdmin();
+    }
+
+    // Future Phase 5: Automation schedules
+    match /automation_schedules/{scheduleId} {
+      allow get: if isValidId(scheduleId) && isAdmin();
+      allow list: if isSignedIn() && existing().ownerUid == request.auth.uid;
+      allow create: if isValidId(scheduleId)
+        && isValidAutomationSchedule(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isValidId(scheduleId)
+        && isValidAutomationSchedule(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'cronExpression', 'enabled', 'updatedAt'])
+        && isAdmin();
+      allow delete: if isValidId(scheduleId) && isAdmin();
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "YouTube Live Automation Studio",
+  "description": "Private single-admin broadcast management and YouTube live automation studio foundation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

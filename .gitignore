@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+dist-server/
+coverage/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+prisma/*.db
+prisma/*.db-journal
+.storage-local-dev.json
+.auth-allowlist-dev.json
+.oauth-states-dev.json

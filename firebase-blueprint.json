@@ -1,0 +1,732 @@
+{
+  "entities": {
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Authorized single administrator record stored in Firestore without any passwords.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Authentication UID of the single authorized administrator."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Normalized email address of the administrator."
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional display name."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["ADMIN"],
+          "description": "Strict single-admin role."
+        },
+        "isPrimaryOwner": {
+          "type": "boolean",
+          "description": "Whether this administrator is the protected primary owner."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Whether administrator access is currently active."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "role", "active", "createdAt", "updatedAt"]
+    },
+    "AdminAllowlist": {
+      "title": "AdminAllowlist",
+      "description": "Server-managed allowlist of authorized Gmail/email administrators.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "isPrimaryOwner": {
+          "type": "boolean"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "addedByEmail": {
+          "type": "string",
+          "maxLength": 254
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "isPrimaryOwner", "active", "createdAt", "updatedAt"]
+    },
+    "OAuthState": {
+      "title": "OAuthState",
+      "description": "Ephemeral server-only OAuth 2.0 CSRF state token record.",
+      "type": "object",
+      "properties": {
+        "nonce": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 128
+        },
+        "adminUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "redirectUri": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "reconnectAccountId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["nonce", "adminUid", "redirectUri", "expiresAt", "createdAt"]
+    },
+    "SystemConfig": {
+      "title": "SystemConfig",
+      "description": "Application-wide non-secret settings and policy documents.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["key", "ownerUid", "createdAt", "updatedAt"]
+    },
+    "AuthSecurityEvent": {
+      "title": "AuthSecurityEvent",
+      "description": "Server-written authentication and authorization audit event.",
+      "type": "object",
+      "properties": {
+        "eventType": {
+          "type": "string",
+          "enum": [
+            "LOGIN_SUCCESS",
+            "GOOGLE_LOGIN_SUCCESS",
+            "AUTH_REJECTED",
+            "LOGOUT",
+            "ADMIN_INITIALIZED",
+            "ADMIN_ALLOWLIST_ADDED",
+            "ADMIN_ALLOWLIST_REVOKED"
+          ]
+        },
+        "uid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 254
+        },
+        "ipAddress": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "userAgent": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["eventType", "createdAt"]
+    },
+    "StudioChannel": {
+      "title": "StudioChannel",
+      "description": "Future Phase 3 YouTube channel connection record.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "externalChannelId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING_CONNECTION", "CONNECTED", "DISCONNECTED"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "title", "status", "createdAt", "updatedAt"]
+    },
+    "MediaAsset": {
+      "title": "MediaAsset",
+      "description": "Future Phase 3 video library asset metadata.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "storageKey": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "durationSeconds": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING", "READY", "ARCHIVED"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "title", "status", "createdAt", "updatedAt"]
+    },
+    "StorageConfig": {
+      "title": "StorageConfig",
+      "description": "Phase 3 cloud storage account configuration metadata (no secret keys).",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["GOOGLE_DRIVE", "CLOUDFLARE_R2", "AMAZON_S3", "GOOGLE_CLOUD_STORAGE", "S3_COMPATIBLE"]
+        },
+        "accountName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "accountEmail": {
+          "type": "string",
+          "maxLength": 254
+        },
+        "accountDisplayName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "accountIdExternal": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "driveFolderId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "bucketName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "region": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "endpoint": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "accessKeyPreview": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "quotaBytes": {
+          "type": "number"
+        },
+        "usedBytes": {
+          "type": "number"
+        },
+        "measuredUsedBytes": {
+          "type": "number"
+        },
+        "measuredObjectCount": {
+          "type": "number"
+        },
+        "fileCount": {
+          "type": "number"
+        },
+        "isDefault": {
+          "type": "boolean"
+        },
+        "priority": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["CONNECTED", "REVOKED", "ERROR", "DISCONNECTED"]
+        },
+        "lastConnectedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastHealthCheckAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastHealthError": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerUid",
+        "provider",
+        "accountName",
+        "bucketName",
+        "quotaBytes",
+        "usedBytes",
+        "fileCount",
+        "isDefault",
+        "priority",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StorageProviderSecret": {
+      "title": "StorageProviderSecret",
+      "description": "AES-256-GCM encrypted provider credentials (Admin SDK access only).",
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ciphertext": {
+          "type": "string",
+          "maxLength": 32768
+        },
+        "iv": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "authTag": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "keyVersion": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["accountId", "ciphertext", "iv", "authTag", "keyVersion", "updatedAt"]
+    },
+    "StorageUploadSession": {
+      "title": "StorageUploadSession",
+      "description": "Resumable direct browser upload session metadata.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "accountId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["GOOGLE_DRIVE", "CLOUDFLARE_R2", "AMAZON_S3", "GOOGLE_CLOUD_STORAGE", "S3_COMPATIBLE"]
+        },
+        "objectKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "uploadId": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "fileName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "fileSizeBytes": {
+          "type": "number"
+        },
+        "contentType": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "uploadStrategy": {
+          "type": "string",
+          "enum": ["GOOGLE_DRIVE_RESUMABLE", "SINGLE_PUT", "MULTIPART", "GCS_RESUMABLE"]
+        },
+        "uploadedBytesConfirmed": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["INITIATED", "IN_PROGRESS", "PAUSED", "COMPLETED", "ABORTED", "FAILED"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerUid",
+        "accountId",
+        "provider",
+        "objectKey",
+        "fileName",
+        "fileSizeBytes",
+        "contentType",
+        "uploadStrategy",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StorageFile": {
+      "title": "StorageFile",
+      "description": "Verified uploaded cloud object metadata record.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "accountId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["GOOGLE_DRIVE", "CLOUDFLARE_R2", "AMAZON_S3", "GOOGLE_CLOUD_STORAGE", "S3_COMPATIBLE"]
+        },
+        "bucketName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "objectKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "externalFileId": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "fileName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "fileSizeBytes": {
+          "type": "number"
+        },
+        "contentType": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "uploadStatus": {
+          "type": "string",
+          "enum": ["VERIFIED", "FAILED"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerUid",
+        "accountId",
+        "provider",
+        "bucketName",
+        "objectKey",
+        "fileName",
+        "fileSizeBytes",
+        "contentType",
+        "uploadStatus",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StorageActivityLog": {
+      "title": "StorageActivityLog",
+      "description": "Server-written storage health, upload, deletion, and error audit event.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "accountId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "eventType": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "status": {
+          "type": "string",
+          "enum": ["INFO", "SUCCESS", "WARNING", "ERROR"]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "eventType", "status", "message", "createdAt"]
+    },
+    "StreamSession": {
+      "title": "StreamSession",
+      "description": "Future Phase 4 streaming history and broadcast session metadata.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "channelId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["DRAFT", "SCHEDULED", "LIVE", "ENDED", "FAILED"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "title", "status", "createdAt", "updatedAt"]
+    },
+    "AutomationSchedule": {
+      "title": "AutomationSchedule",
+      "description": "Future Phase 5 automated broadcast schedule record.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "cronExpression": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 100
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "title", "cronExpression", "enabled", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Authorized administrator profiles (Admin SDK write only)."
+    },
+    "/admin_allowlist/{entryId}": {
+      "schema": { "$ref": "#/entities/AdminAllowlist" },
+      "description": "Authorized Gmail/email allowlist (Admin SDK only)."
+    },
+    "/oauth_states/{stateId}": {
+      "schema": { "$ref": "#/entities/OAuthState" },
+      "description": "Short-lived OAuth 2.0 CSRF states (Admin SDK only)."
+    },
+    "/system_config/{configId}": {
+      "schema": { "$ref": "#/entities/SystemConfig" },
+      "description": "Studio application settings and multi-admin policy documents."
+    },
+    "/auth_security_events/{eventId}": {
+      "schema": { "$ref": "#/entities/AuthSecurityEvent" },
+      "description": "Authentication audit trail (Admin SDK write only)."
+    },
+    "/studio_channels/{channelId}": {
+      "schema": { "$ref": "#/entities/StudioChannel" },
+      "description": "Future Phase 4+ YouTube channel connection records."
+    },
+    "/media_assets/{assetId}": {
+      "schema": { "$ref": "#/entities/MediaAsset" },
+      "description": "Future Phase 4 Video Library metadata."
+    },
+    "/storage_configs/{configId}": {
+      "schema": { "$ref": "#/entities/StorageConfig" },
+      "description": "Phase 3 cloud storage account metadata (Admin SDK write only)."
+    },
+    "/storage_provider_secrets/{accountId}": {
+      "schema": { "$ref": "#/entities/StorageProviderSecret" },
+      "description": "AES-256-GCM encrypted cloud storage credentials (Admin SDK only)."
+    },
+    "/storage_upload_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/StorageUploadSession" },
+      "description": "Resumable multipart/direct upload sessions (Admin SDK write only)."
+    },
+    "/storage_files/{fileId}": {
+      "schema": { "$ref": "#/entities/StorageFile" },
+      "description": "Verified uploaded cloud file metadata (Admin SDK write only)."
+    },
+    "/storage_activity_logs/{logId}": {
+      "schema": { "$ref": "#/entities/StorageActivityLog" },
+      "description": "Storage audit, health, and error logs (Admin SDK only)."
+    },
+    "/stream_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/StreamSession" },
+      "description": "Future Phase 4+ streaming history records."
+    },
+    "/automation_schedules/{scheduleId}": {
+      "schema": { "$ref": "#/entities/AutomationSchedule" },
+      "description": "Future Phase 5 automation schedule records."
+    }
+  }
+}
