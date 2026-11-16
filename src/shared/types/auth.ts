@@ -2,6 +2,8 @@ export interface AuthConfigStatus {
   firebaseClientConfigured: boolean;
   firebaseAdminConfigured: boolean;
   firestoreConfigured: boolean;
+  firebaseProjectId?: string;
+  adminEmailsConfigured?: boolean;
   adminSetupRequired: boolean;
   googleSignInEnabled: boolean;
   emailPasswordEnabled: boolean;

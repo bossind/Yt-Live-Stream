@@ -21,7 +21,15 @@ function getCurrentHostname(): string {
   return 'this domain';
 }
 
-export function mapFirebaseAuthError(err: unknown): string {
+export interface FirebaseErrorContext {
+  projectId?: string;
+  hostname?: string;
+}
+
+export function mapFirebaseAuthError(
+  err: unknown,
+  context?: FirebaseErrorContext
+): string {
   if (isApiClientErrorLike(err)) {
     if (err.statusCode === 401) {
       return (
@@ -39,15 +47,16 @@ export function mapFirebaseAuthError(err: unknown): string {
   }
 
   if (err instanceof FirebaseError) {
-    const hostname = getCurrentHostname();
+    const hostname = context?.hostname || getCurrentHostname();
+    const projectHint = context?.projectId ? ` (Firebase project: "${context.projectId}")` : '';
     switch (err.code) {
       case 'auth/unauthorized-domain':
-        return `Domain "${hostname}" is not listed in Firebase Authorized Domains. Add "${hostname}" (hostname only, without https://) in Firebase Console -> Authentication -> Settings -> Authorized domains.`;
+        return `Domain "${hostname}" is not listed in Firebase Authorized Domains${projectHint}. Add "${hostname}" (hostname only, without https://) in Firebase Console -> Authentication -> Settings -> Authorized domains.`;
       case 'auth/unauthorized-continue-uri':
       case 'auth/invalid-continue-uri':
-        return `Redirect domain "${hostname}" is not authorized in Firebase Authentication. Add "${hostname}" (hostname only, without https://) in Firebase Console -> Authentication -> Settings -> Authorized domains.`;
+        return `Redirect domain "${hostname}" is not authorized in Firebase Authentication${projectHint}. Add "${hostname}" (hostname only, without https://) in Firebase Console -> Authentication -> Settings -> Authorized domains.`;
       case 'auth/operation-not-allowed':
-        return 'This sign-in method is not enabled in Firebase Authentication. Enable Email/Password and Google providers in Firebase Console -> Authentication -> Sign-in method.';
+        return `This sign-in method is not enabled in Firebase Authentication${projectHint}. Enable Email/Password and Google providers in Firebase Console -> Authentication -> Sign-in method.`;
       case 'auth/invalid-credential':
       case 'auth/wrong-password':
       case 'auth/user-not-found':

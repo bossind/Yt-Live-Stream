@@ -38,6 +38,8 @@ authRouter.get('/status', async (_req, res, next) => {
         firebaseClientConfigured: true,
         firebaseAdminConfigured: adminState.configured,
         firestoreConfigured: adminState.configured && adminState.hasFullAdminCredentials,
+        firebaseProjectId: env.firebaseProjectId || undefined,
+        adminEmailsConfigured: env.isAdminEmailConfigured,
         adminSetupRequired: adminState.hasFullAdminCredentials ? !hasAdminInFirestore : false,
         googleSignInEnabled: adminState.configured,
         emailPasswordEnabled: adminState.configured,
@@ -197,6 +199,15 @@ authRouter.post(
   async (req, res, next) => {
     try {
       res.setHeader('Cache-Control', 'no-store');
+      const adminState = getFirebaseAdminState();
+      if (env.isProduction && (!adminState.firestore || !adminState.hasFullAdminCredentials)) {
+        throw new AppError(
+          'Firebase Admin service account credentials (FIREBASE_SERVICE_ACCOUNT_JSON) are required in production to persist allowlist updates.',
+          503,
+          'FIREBASE_SERVICE_ACCOUNT_REQUIRED'
+        );
+      }
+
       const parsed = addAllowlistSchema.parse(req.body);
       const normalizedEmail = parsed.email.toLowerCase();
       const isPrimaryOwner = normalizedEmail === env.primaryAdminEmail;
@@ -210,7 +221,6 @@ authRouter.post(
       });
 
       // If this Firebase user already exists, sync custom claims immediately
-      const adminState = getFirebaseAdminState();
       let resolvedUid: string | null = null;
       if (adminState.auth && adminState.hasFullAdminCredentials) {
         try {
@@ -300,6 +310,15 @@ authRouter.delete(
         );
       }
 
+      const adminState = getFirebaseAdminState();
+      if (env.isProduction && (!adminState.firestore || !adminState.hasFullAdminCredentials)) {
+        throw new AppError(
+          'Firebase Admin service account credentials (FIREBASE_SERVICE_ACCOUNT_JSON) are required in production to update the allowlist.',
+          503,
+          'FIREBASE_SERVICE_ACCOUNT_REQUIRED'
+        );
+      }
+
       await FirestoreModel.upsertAllowlistEntry({
         email: targetEmail,
         displayName: existing?.displayName ?? null,
@@ -309,7 +328,6 @@ authRouter.delete(
       });
 
       const revokedUids = await FirestoreModel.deactivateAdminsByEmail(targetEmail);
-      const adminState = getFirebaseAdminState();
       if (adminState.auth && adminState.hasFullAdminCredentials) {
         const uidsToRevoke = new Set(revokedUids);
         try {

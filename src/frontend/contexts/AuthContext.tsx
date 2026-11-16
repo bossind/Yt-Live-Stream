@@ -25,6 +25,7 @@ import {
 import type { AuthenticatedAdminUser } from '../../shared/types/auth';
 import { mapFirebaseAuthError } from '../firebase/authErrors';
 import { firebaseAuth, googleAuthProvider } from '../firebase/client';
+import { firebaseClientConfigState } from '../firebase/config';
 import { authService } from '../services/authService';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
@@ -82,61 +83,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!redirectCheckedRef.current) {
-      redirectCheckedRef.current = true;
-      void (async () => {
-        if (!firebaseAuth) return;
+    const activeProjectId = firebaseClientConfigState.config.projectId;
+    let active = true;
+    let unsubscribe: (() => void) | null = null;
+
+    void (async () => {
+      if (!firebaseAuth) return;
+
+      if (!redirectCheckedRef.current) {
+        redirectCheckedRef.current = true;
         try {
           const redirectResult = await getRedirectResult(firebaseAuth);
-          if (redirectResult?.user && !explicitLoginInFlightRef.current) {
+          if (active && redirectResult?.user && !explicitLoginInFlightRef.current) {
             explicitLoginInFlightRef.current = true;
             try {
               await verifyWithBackend(redirectResult.user);
             } catch (err) {
-              const message = mapFirebaseAuthError(err);
+              const message = mapFirebaseAuthError(err, { projectId: activeProjectId });
               await signOut(firebaseAuth).catch(() => {});
-              setUser(null);
-              setStatus('unauthenticated');
-              setAuthError(message);
+              if (active) {
+                setUser(null);
+                setStatus('unauthenticated');
+                setAuthError(message);
+              }
             } finally {
               explicitLoginInFlightRef.current = false;
             }
           }
         } catch (err) {
-          const message = mapFirebaseAuthError(err);
+          const message = mapFirebaseAuthError(err, { projectId: activeProjectId });
           await signOut(firebaseAuth).catch(() => {});
+          if (active) {
+            setUser(null);
+            setStatus('unauthenticated');
+            setAuthError(message);
+          }
+        }
+      }
+
+      if (!active || !firebaseAuth) return;
+
+      unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+        if (!active || explicitLoginInFlightRef.current) {
+          return;
+        }
+
+        if (!firebaseUser) {
           setUser(null);
           setStatus('unauthenticated');
-          setAuthError(message);
+          return;
         }
-      })();
-    }
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
-      if (explicitLoginInFlightRef.current) {
-        return;
-      }
-
-      if (!firebaseUser) {
-        setUser(null);
-        setStatus('unauthenticated');
-        return;
-      }
-
-      try {
-        await verifyWithBackend(firebaseUser);
-      } catch (err) {
-        const message = mapFirebaseAuthError(err);
-        if (firebaseAuth) {
-          await signOut(firebaseAuth).catch(() => {});
+        try {
+          await verifyWithBackend(firebaseUser);
+        } catch (err) {
+          const message = mapFirebaseAuthError(err, { projectId: activeProjectId });
+          if (firebaseAuth) {
+            await signOut(firebaseAuth).catch(() => {});
+          }
+          if (active) {
+            setUser(null);
+            setStatus('unauthenticated');
+            setAuthError(message);
+          }
         }
-        setUser(null);
-        setStatus('unauthenticated');
-        setAuthError(message);
-      }
-    });
+      });
+    })();
 
-    return () => unsubscribe();
+    return () => {
+      active = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [verifyWithBackend]);
 
   const clearAuthError = useCallback(() => setAuthError(null), []);
@@ -171,7 +190,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await signOut(firebaseAuth).catch(() => {});
         setUser(null);
         setStatus('unauthenticated');
-        const message = mapFirebaseAuthError(err);
+        const message = mapFirebaseAuthError(err, {
+          projectId: firebaseClientConfigState.config.projectId,
+        });
         setAuthError(message);
         throw new Error(message);
       } finally {
@@ -198,7 +219,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await signOut(firebaseAuth).catch(() => {});
         setUser(null);
         setStatus('unauthenticated');
-        const message = mapFirebaseAuthError(err);
+        const message = mapFirebaseAuthError(err, {
+          projectId: firebaseClientConfigState.config.projectId,
+        });
         setAuthError(message);
         throw err;
       } finally {
@@ -226,7 +249,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         await signInWithRedirect(firebaseAuth, googleAuthProvider);
       } catch (err) {
-        const message = mapFirebaseAuthError(err);
+        const message = mapFirebaseAuthError(err, {
+          projectId: firebaseClientConfigState.config.projectId,
+        });
         setAuthError(message);
         throw new Error(message);
       }
@@ -257,7 +282,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Never leak whether an email is registered
         return;
       }
-      throw new Error(mapFirebaseAuthError(err));
+      throw new Error(
+        mapFirebaseAuthError(err, {
+          projectId: firebaseClientConfigState.config.projectId,
+        })
+      );
     }
   }, []);
 

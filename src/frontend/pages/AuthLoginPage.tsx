@@ -65,6 +65,12 @@ export function AuthLoginPage() {
     ])
   );
 
+  const activeProjectId = firebaseClientConfigState.config.projectId;
+  const projectMismatch =
+    Boolean(authConfig?.firebaseProjectId) &&
+    Boolean(activeProjectId) &&
+    authConfig?.firebaseProjectId !== activeProjectId;
+
   const displayedError = localError || authError;
 
   const handleSubmit = async (e: FormEvent) => {
@@ -88,7 +94,7 @@ export function AuthLoginPage() {
       await loginWithEmail(trimmedEmail, password, rememberMe);
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      setLocalError(mapFirebaseAuthError(err));
+      setLocalError(mapFirebaseAuthError(err, { projectId: activeProjectId }));
     } finally {
       setSubmitting(false);
     }
@@ -106,7 +112,7 @@ export function AuthLoginPage() {
       if (canUseRedirectFallback && isPopupFallbackSuggested(err)) {
         setShowRedirectFallback(true);
       }
-      setLocalError(mapFirebaseAuthError(err));
+      setLocalError(mapFirebaseAuthError(err, { projectId: activeProjectId }));
     } finally {
       setGoogleSubmitting(false);
     }
@@ -119,7 +125,7 @@ export function AuthLoginPage() {
     try {
       await loginWithGoogleRedirect(rememberMe);
     } catch (err) {
-      setLocalError(mapFirebaseAuthError(err));
+      setLocalError(mapFirebaseAuthError(err, { projectId: activeProjectId }));
       setGoogleSubmitting(false);
     }
   };
@@ -147,6 +153,23 @@ export function AuthLoginPage() {
             <p className="font-semibold">{t.auth.configWarningTitle}</p>
             <p className="mt-1 font-mono">
               {t.auth.configWarningMissing} {missingFirebaseKeys.join(', ')}
+            </p>
+          </div>
+        ) : null}
+
+        {projectMismatch ? (
+          <div
+            role="alert"
+            className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-200"
+          >
+            <p className="font-semibold">Firebase Project Mismatch Detected</p>
+            <p className="mt-1 leading-relaxed">
+              Frontend build is targeting project{' '}
+              <span className="font-mono font-semibold">{activeProjectId}</span> while the backend
+              is targeting{' '}
+              <span className="font-mono font-semibold">{authConfig?.firebaseProjectId}</span>.
+              Align <span className="font-mono">VITE_FIREBASE_*</span> and{' '}
+              <span className="font-mono">FIREBASE_PROJECT_ID</span> and rebuild the frontend.
             </p>
           </div>
         ) : null}
